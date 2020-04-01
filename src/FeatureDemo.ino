@@ -7,13 +7,19 @@
 #include <SmartMatrix3.h>
 #include "colorwheel.c"
 #include "gimpbitmap.h"
+#include <IotWebConf.h>
 
+// -- Initial name of the Thing. Used e.g. as SSID of the own Access Point.
+const char thingName[] = "ClassicMatrix";
+
+// -- Initial password to connect to the Thing, when it creates an own Access Point.
+const char wifiInitialApPassword[] = "classicmatrix";
 #define COLOR_DEPTH 24                  // known working: 24, 48 - If the sketch uses type `rgb24` directly, COLOR_DEPTH must be 24
-const uint8_t kMatrixWidth = 32;        // known working: 32, 64, 96, 128
+const uint8_t kMatrixWidth = 64;        // known working: 32, 64, 96, 128
 const uint8_t kMatrixHeight = 32;       // known working: 16, 32, 48, 64
 const uint8_t kRefreshDepth = 36;       // known working: 24, 36, 48
 const uint8_t kDmaBufferRows = 4;       // known working: 2-4, use 2 to save memory, more to keep from dropping frames and automatically lowering refresh rate
-const uint8_t kPanelType = SMARTMATRIX_HUB75_32ROW_MOD16SCAN; // use SMARTMATRIX_HUB75_16ROW_MOD8SCAN for common 16x32 panels, or use SMARTMATRIX_HUB75_64ROW_MOD32SCAN for common 64x64 panels
+const uint8_t kPanelType = SMARTMATRIX_HUB75_64ROW_MOD32SCAN; //SMARTMATRIX_HUB75_32ROW_MOD16SCAN; // use SMARTMATRIX_HUB75_16ROW_MOD8SCAN for common 16x32 panels, or use SMARTMATRIX_HUB75_64ROW_MOD32SCAN for common 64x64 panels
 const uint8_t kMatrixOptions = (SMARTMATRIX_OPTIONS_NONE);      // see http://docs.pixelmatix.com/SmartMatrix for options
 const uint8_t kBackgroundLayerOptions = (SM_BACKGROUND_OPTIONS_NONE);
 const uint8_t kScrollingLayerOptions = (SM_SCROLLING_OPTIONS_NONE);
@@ -41,9 +47,48 @@ void drawBitmap(int16_t x, int16_t y, const gimp32x32bitmap* bitmap) {
   }
 }
 
+DNSServer dnsServer;
+WebServer server(80);
+
+IotWebConf iotWebConf(thingName, &dnsServer, &server, wifiInitialApPassword);
+
+
+/**
+ * Handle web requests to "/" path.
+ */
+void handleRoot()
+{
+  // -- Let IotWebConf test and handle captive portal requests.
+  if (iotWebConf.handleCaptivePortal())
+  {
+    // -- Captive portal request were already served.
+    return;
+  }
+  String s = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/>";
+  s += "<title>IotWebConf 01 Minimal</title></head><body>Hello world!";
+  s += "Go to <a href='config'>configure page</a> to change settings.";
+  s += "</body></html>\n";
+
+  server.send(200, "text/html", s);
+}
+
+
 // the setup() method runs once, when the sketch starts
 void setup() {
-  Serial.begin(38400);
+  Serial.begin(115200);
+  Serial.println();
+  Serial.println("Starting up...");
+
+  // -- Initializing the configuration.
+  iotWebConf.init();
+
+  // -- Set up required URL handlers on the web server.
+  server.on("/", handleRoot);
+  server.on("/config", []{ iotWebConf.handleConfig(); });
+  server.onNotFound([](){ iotWebConf.handleNotFound(); });
+
+  Serial.println("Ready.");
+
 
   matrix.addLayer(&backgroundLayer); 
   matrix.addLayer(&scrollingLayer); 
@@ -84,9 +129,16 @@ void setup() {
 #define DEMO_REFRESH_RATE       1
 #define DEMO_READ_PIXEL         1
 
+
+void loop() {
+  // -- doLoop should be called as frequently as possible.
+  iotWebConf.doLoop();
+}
+
 // the loop() method runs over and over again,
 // as long as the board has power
-void loop() {
+void old_loop() {
+
     int i, j;
     unsigned long currentMillis;
 
