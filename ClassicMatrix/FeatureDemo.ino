@@ -5,8 +5,8 @@
 
 //  #include <SmartLEDShieldV4.h>  // comment out this line for if you're not using SmartLED Shield V4 hardware (this line needs to be before #include <SmartMatrix3.h>)
 #include <SmartMatrix3.h>
-#include "colorwheel.c"
-#include "gimpbitmap.h"
+#include "src/colorwheel.c"
+#include "src/gimpbitmap.h"
 #include <IotWebConf.h>
 
 // -- Initial name of the Thing. Used e.g. as SSID of the own Access Point.
